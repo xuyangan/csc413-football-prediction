@@ -19,5 +19,3 @@ data_recent_and_val = pd.concat([data_recent, val_full])
 # %%
 # write back to csv 
 data_recent_and_val.to_csv('split_data/data_recent_and_val.csv', index=False)
-
-
