@@ -2,12 +2,11 @@
 import pandas as pd
 import torch as th
 import torch.nn as nn
-import datetime
 import glob
 
 import sys
 sys.path.append('../models/')
-from models import *
+from models.inception import *
 
 # %%
 def load_data():
@@ -29,7 +28,6 @@ def load_data():
     full_df = full_df.drop(columns=['Sea', 'Lge', 'GD', 'WDL'])
 
 
-    # %%
     # convert the teams to index
     teams = full_df['HT'].unique()
     teams.sort()
@@ -42,7 +40,6 @@ def load_data():
     full_df['HT'] = full_df['HT'].map(team_to_idx)
     full_df['AT'] = full_df['AT'].map(team_to_idx)
 
-    # %%
     # sort the dataframe by date
     full_df = full_df.sort_values(by='Date')
 
@@ -50,13 +47,16 @@ def load_data():
     split_date = datetime.datetime.strptime(split_date, "%d/%m/%Y")
 
     df_train = full_df[full_df['Date'] < split_date]
-    df_val = full_df[full_df['Date'] >= split_date]
+    df_test = full_df[full_df['Date'] >= split_date]
+
+    training_berrar_expected_goals = th.tensor(df_train[['HT_EG', 'AT_EG']].values, dtype=th.float32)
+    testing_berrar_expected_goals = th.tensor(df_test[['HT_EG', 'AT_EG']].values, dtype=th.float32)
 
     training_data = th.tensor(df_train.drop(columns=['Date', 'HS', 'AS', 'HT_EG', 'AT_EG']).values, dtype=th.float32)
     training_labels = th.tensor(df_train[['HS', 'AS']].values, dtype=th.float32)
 
-    testing_data = th.tensor(df_val.drop(columns=['Date', 'HS', 'AS', 'HT_EG', 'AT_EG']).values, dtype=th.float32)
-    testing_labels = th.tensor(df_val[['HS', 'AS']].values, dtype=th.float32)
+    testing_data = th.tensor(df_test.drop(columns=['Date', 'HS', 'AS', 'HT_EG', 'AT_EG']).values, dtype=th.float32)
+    testing_labels = th.tensor(df_test[['HS', 'AS']].values, dtype=th.float32)
 
     # separate the training set into training and validation sets
     split = int(0.8 * training_data.shape[0])
@@ -66,24 +66,30 @@ def load_data():
     val_labels = training_labels[split:]
 
 
-    return train_data, train_labels, val_data, val_labels, testing_data, testing_labels, team_to_idx, idx_to_team
+    return train_data, train_labels, val_data, val_labels, testing_data, testing_labels, team_to_idx, idx_to_team, training_berrar_expected_goals, testing_berrar_expected_goals
 
 # %%
-train_data, train_labels, val_data, val_labels, testing_data, testing_labels, team_to_idx, idx_to_team = load_data()
+train_data, train_labels, val_data, val_labels, testing_data, testing_labels, team_to_idx, idx_to_team, training_berrar_expected_goals, testing_berrar_expected_goals = load_data() 
 
 
 # %%
-# fold the data for 2D convolution
+
 time_step = 28
 num_teams = len(team_to_idx)
 embedding_dim = 10
 in_channels = 1
 batch_size = 100
 
-for i in [train_data, train_labels, val_data, val_labels, testing_data, testing_labels]:
-    i = i.unfold(0, time_step, time_step//2).unsqueeze(1)
+train_data = train_data.unfold(0, time_step, 2)
+train_labels = train_labels[time_step-1:]
 
-data_loader = th.utils.data.DataLoader(train_data, batch_size, shuffle=True)
+val_data = val_data.unfold(0, time_step, 1)
+val_labels = val_labels[time_step-1:]
+
+testing_data = testing_data.unfold(0, time_step, 1)
+testing_labels = testing_labels[time_step-1:]
+
+data_loader = th.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True)
 
 
 
@@ -96,7 +102,10 @@ inception_model = Inceptionv2(in_channels)
 # # test the model with a batch of data and see the output shape
 
 for data in data_loader:
+    print(data.shape)
     x = embedding_layer(data)
     x = x.unsqueeze(1)
     x = inception_model(x)
+
+
 
