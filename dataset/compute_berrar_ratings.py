@@ -9,6 +9,8 @@ import time
 
 # %%
 
+# code from: https://github.com/calvinyeungck/Soccer-Prediction-Challenge-2023/blob/main/berrar_rating.py
+
 def calculate_expected_goals(alpha, beta_H, gamma_H, beta_A, gamma_A, o_H, d_A, o_A, d_H):
     G_H_hat = alpha / (1 + np.exp(- beta_H * (o_H + d_A) - gamma_H))
     G_A_hat = alpha / (1 + np.exp(- beta_A * (o_A + d_H) - gamma_A))
