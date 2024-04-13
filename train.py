@@ -74,14 +74,14 @@ train_data, train_labels, val_data, val_labels, testing_data, testing_labels, te
 
 # %%
 # fold the data for 2D convolution
-time_frame = 28
+time_step = 28
 num_teams = len(team_to_idx)
 embedding_dim = 10
 in_channels = 1
 batch_size = 100
 
 for i in [train_data, train_labels, val_data, val_labels, testing_data, testing_labels]:
-    i = i.unfold(0, time_frame, time_frame//2).unsqueeze(1)
+    i = i.unfold(0, time_step, time_step//2).unsqueeze(1)
 
 data_loader = th.utils.data.DataLoader(train_data, batch_size, shuffle=True)
 
