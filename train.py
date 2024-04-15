@@ -1,6 +1,4 @@
 # %%
-import datetime
-
 import pandas as pd
 import torch as th
 import torch.nn as nn
@@ -8,8 +6,7 @@ import glob
 
 import sys
 sys.path.append('../models/')
-from models.inception import *
-from models.transformer import *
+from models.inception1D import *
 
 # %%
 def load_data():
@@ -63,8 +60,8 @@ def load_data():
 
     # separate the training set into training and validation sets
     split = int(0.8 * training_data.shape[0])
-    train_data = training_data[:split]
-    train_labels = training_labels[:split]
+    train_data = training_data[1:split]
+    train_labels = training_labels[1:split]
     val_data = training_data[split:]
     val_labels = training_labels[split:]
 
@@ -76,55 +73,51 @@ train_data, train_labels, val_data, val_labels, testing_data, testing_labels, te
 
 
 # %%
-
-src_num_matches = 5000
-tgt_num_matches = 5000
-d_model = 512
-num_heads = 8
-num_layers = 6
-d_ff = 2048
-max_seq_length = 100
-dropout = 0.1
-
-time_step = 28
+# time_step = 10
 num_teams = len(team_to_idx)
 embedding_dim = 10
 in_channels = 1
-batch_size = 100
+batch_size = 200
 
-train_data = train_data.unfold(0, time_step, 2)
-train_labels = train_labels[time_step-1:]
+print(train_data.shape)
 
-val_data = val_data.unfold(0, time_step, 1)
-val_labels = val_labels[time_step-1:]
+# window_train_data = train_data.unfold(0, time_step, 1)
+# window_train_labels = train_labels[time_step-1:]
 
-testing_data = testing_data.unfold(0, time_step, 1)
-testing_labels = testing_labels[time_step-1:]
+data_set = CustomDataset(train_data, train_labels)
 
-data_loader = th.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=False)
+# window_val_data = val_data.unfold(0, time_step, 1)
+# window_val_labels = val_labels[time_step-1:]
+
+# window_testing_data = testing_data.unfold(0, time_step, 1)
+# window_testing_labels = testing_labels[time_step-1:]
+
+data_loader = th.utils.data.DataLoader(data_set, batch_size=batch_size, shuffle=False)
 
 # %%
 # create the model
-embedding_layer = TeamEmbedding(num_teams, embedding_dim)   
-inception_model = Inceptionv2(in_channels)
-transformer_model = Transformer(src_num_matches, tgt_num_matches, d_model, num_heads, num_layers, d_ff, max_seq_length,
-                                dropout)
-
+# embedding_layer = TeamEmbedding(num_teams, embedding_dim)   
+inception_model = Inceptionv3(in_channels)
 
 # # test the model with a batch of data and see the output shape
+team_indices = th.tensor(list(team_to_idx.values()), dtype=th.long)
+print(team_indices.shape)
+
+for data in data_loader:
+    x = data[0]
+    home_teams = x[:, 0].unsqueeze(-1)
+    away_teams = x[:, 1].unsqueeze(-1)
+    # remove the team index from the input
+    # x = x[:, 2:, :]
+    # x = embedding_layer(x)
+    x = x.unsqueeze(1)
+    x = inception_model(x)
+
+    x = x.squeeze()
+    x = th.cat((home_teams, away_teams, x), 1)
+
+    print(x.shape)
 
 
-def main():
-    for data in data_loader:
-        print(data.shape)
-        x = embedding_layer(data)
-        x = x.unsqueeze(1)
-        x = inception_model(x)
-        # x = transformer_model(x)
-        print(x.shape)
-
-
-if __name__ == "__main__":
-    main()
 
 

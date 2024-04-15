@@ -231,7 +231,7 @@ class Inceptionv3(nn.Module):
         super(Inceptionv3, self).__init__()
 
         # Initial convolution and maxpool layers
-        self.conv1 = ConvBlock2D(in_channels, 64, kernel_size=7, stride=2, padding=3)
+        self.conv1 = ConvBlock2D(in_channels, 64, kernel_size=3, stride=1, padding=3)
         self.maxpool1 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
         # Reduced convolution sequence
