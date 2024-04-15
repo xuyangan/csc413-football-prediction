@@ -120,7 +120,7 @@ criterion = nn.CrossEntropyLoss(ignore_index=0)
 optimizer = th.optim.Adam(transformer_model.parameters(), lr=0.0001, betas=(0.9, 0.98), eps=1e-9)
 
 
-def train():
+def train_transformer():
     transformer_model.train()
     for epoch in range(10):
         for data in data_loader:
@@ -143,5 +143,5 @@ def train():
 
 
 if __name__ == "__main__":
-    train()
+    train_transformer()
 
