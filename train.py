@@ -6,7 +6,7 @@ import glob
 
 import sys
 sys.path.append('../models/')
-from models.inception import *
+from models.inception1D import *
 
 # %%
 def load_data():
@@ -60,8 +60,8 @@ def load_data():
 
     # separate the training set into training and validation sets
     split = int(0.8 * training_data.shape[0])
-    train_data = training_data[:split]
-    train_labels = training_labels[:split]
+    train_data = training_data[1:split]
+    train_labels = training_labels[1:split]
     val_data = training_data[split:]
     val_labels = training_labels[split:]
 
@@ -73,39 +73,51 @@ train_data, train_labels, val_data, val_labels, testing_data, testing_labels, te
 
 
 # %%
-
-time_step = 28
+# time_step = 10
 num_teams = len(team_to_idx)
 embedding_dim = 10
 in_channels = 1
-batch_size = 100
+batch_size = 200
 
-train_data = train_data.unfold(0, time_step, 2)
-train_labels = train_labels[time_step-1:]
+print(train_data.shape)
 
-val_data = val_data.unfold(0, time_step, 1)
-val_labels = val_labels[time_step-1:]
+# window_train_data = train_data.unfold(0, time_step, 1)
+# window_train_labels = train_labels[time_step-1:]
 
-testing_data = testing_data.unfold(0, time_step, 1)
-testing_labels = testing_labels[time_step-1:]
+data_set = CustomDataset(train_data, train_labels)
 
-data_loader = th.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True)
+# window_val_data = val_data.unfold(0, time_step, 1)
+# window_val_labels = val_labels[time_step-1:]
 
+# window_testing_data = testing_data.unfold(0, time_step, 1)
+# window_testing_labels = testing_labels[time_step-1:]
 
-
+data_loader = th.utils.data.DataLoader(data_set, batch_size=batch_size, shuffle=False)
 
 # %%
 # create the model
-embedding_layer = TeamEmbedding(num_teams, embedding_dim)   
-inception_model = Inceptionv2(in_channels)
+# embedding_layer = TeamEmbedding(num_teams, embedding_dim)   
+inception_model = Inceptionv3(in_channels)
 
 # # test the model with a batch of data and see the output shape
+team_indices = th.tensor(list(team_to_idx.values()), dtype=th.long)
+print(team_indices.shape)
 
 for data in data_loader:
-    print(data.shape)
-    x = embedding_layer(data)
+    x = data[0]
+    home_teams = x[:, 0].unsqueeze(-1)
+    away_teams = x[:, 1].unsqueeze(-1)
+    # remove the team index from the input
+    # x = x[:, 2:, :]
+    # x = embedding_layer(x)
     x = x.unsqueeze(1)
     x = inception_model(x)
+
+    x = x.squeeze()
+    x = th.cat((home_teams, away_teams, x), 1)
+
+    print(x.shape)
+
 
 
 
