@@ -1,4 +1,6 @@
 # %%
+import datetime
+
 import pandas as pd
 import torch as th
 import torch.nn as nn
@@ -7,6 +9,7 @@ import glob
 import sys
 sys.path.append('../models/')
 from models.inception import *
+from models.transformer import *
 
 # %%
 def load_data():
@@ -74,6 +77,15 @@ train_data, train_labels, val_data, val_labels, testing_data, testing_labels, te
 
 # %%
 
+src_num_matches = 5000
+tgt_num_matches = 5000
+d_model = 512
+num_heads = 8
+num_layers = 6
+d_ff = 2048
+max_seq_length = 100
+dropout = 0.1
+
 time_step = 28
 num_teams = len(team_to_idx)
 embedding_dim = 10
@@ -89,23 +101,30 @@ val_labels = val_labels[time_step-1:]
 testing_data = testing_data.unfold(0, time_step, 1)
 testing_labels = testing_labels[time_step-1:]
 
-data_loader = th.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True)
-
-
-
+data_loader = th.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=False)
 
 # %%
 # create the model
 embedding_layer = TeamEmbedding(num_teams, embedding_dim)   
 inception_model = Inceptionv2(in_channels)
+transformer_model = Transformer(src_num_matches, tgt_num_matches, d_model, num_heads, num_layers, d_ff, max_seq_length,
+                                dropout)
+
 
 # # test the model with a batch of data and see the output shape
 
-for data in data_loader:
-    print(data.shape)
-    x = embedding_layer(data)
-    x = x.unsqueeze(1)
-    x = inception_model(x)
 
+def main():
+    for data in data_loader:
+        print(data.shape)
+        x = embedding_layer(data)
+        x = x.unsqueeze(1)
+        x = inception_model(x)
+        # x = transformer_model(x)
+        print(x.shape)
+
+
+if __name__ == "__main__":
+    main()
 
 
