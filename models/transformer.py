@@ -78,16 +78,14 @@ class FFLayer(nn.Module):
         - d_ff: Number of nodes in the first layer
         - d_model: Number of nodes in the second layer
     """
-    def __init__(self, d_ff, d_model):
+    def __init__(self, d_model, d_ff):
         super(FFLayer, self).__init__()
         self.fc1 = nn.Linear(d_model, d_ff)
         self.fc2 = nn.Linear(d_ff, d_model)
         self.relu = nn.ReLU()
 
     def forward(self, x):
-        x = self.relu(self.fc1(x))
-        x = self.fc2(x)
-        return x
+        return self.fc2(self.relu(self.fc1(x)))
 
 
 class EncoderLayer(nn.Module):

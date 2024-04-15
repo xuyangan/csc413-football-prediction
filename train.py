@@ -1,4 +1,5 @@
-# %%
+# %%i
+import datetime
 import pandas as pd
 import torch as th
 import torch.nn as nn
@@ -7,6 +8,7 @@ import glob
 import sys
 sys.path.append('../models/')
 from models.inception1D import *
+from models.transformer import *
 
 # %%
 def load_data():
@@ -73,13 +75,23 @@ train_data, train_labels, val_data, val_labels, testing_data, testing_labels, te
 
 
 # %%
+# hyperparameters: tune as needed
 # time_step = 10
 num_teams = len(team_to_idx)
 embedding_dim = 10
 in_channels = 1
 batch_size = 200
 
-print(train_data.shape)
+src_num_teams = num_teams
+tgt_num_teams = num_teams
+d_model = 512
+num_heads = 8
+num_layers = 6
+d_ff = 512  # originally 2048
+max_seq_length = 258
+dropout = 0.1
+
+# print(train_data.shape)
 
 # window_train_data = train_data.unfold(0, time_step, 1)
 # window_train_labels = train_labels[time_step-1:]
@@ -98,26 +110,38 @@ data_loader = th.utils.data.DataLoader(data_set, batch_size=batch_size, shuffle=
 # create the model
 # embedding_layer = TeamEmbedding(num_teams, embedding_dim)   
 inception_model = Inceptionv3(in_channels)
+transformer_model = Transformer(src_num_teams, tgt_num_teams, d_model, num_heads, num_layers, d_ff, max_seq_length, dropout)
 
 # # test the model with a batch of data and see the output shape
-team_indices = th.tensor(list(team_to_idx.values()), dtype=th.long)
-print(team_indices.shape)
+# team_indices = th.tensor(list(team_to_idx.values()), dtype=th.long)
+# print(team_indices.shape)
 
-for data in data_loader:
-    x = data[0]
-    home_teams = x[:, 0].unsqueeze(-1)
-    away_teams = x[:, 1].unsqueeze(-1)
-    # remove the team index from the input
-    # x = x[:, 2:, :]
-    # x = embedding_layer(x)
-    x = x.unsqueeze(1)
-    x = inception_model(x)
-
-    x = x.squeeze()
-    x = th.cat((home_teams, away_teams, x), 1)
-
-    print(x.shape)
+criterion = nn.CrossEntropyLoss(ignore_index=0)
+optimizer = th.optim.Adam(transformer_model.parameters(), lr=0.0001, betas=(0.9, 0.98), eps=1e-9)
 
 
+def train():
+    transformer_model.train()
+    for epoch in range(10):
+        for data in data_loader:
+            x = data[0]
+            t = data[1].int()  # results
+            home_teams = x[:, 0].unsqueeze(-1)
+            away_teams = x[:, 1].unsqueeze(-1)
+            # remove the team index from the input
+            # x = x[:, 2:, :]
+            # x = embedding_layer(x)
+            x = x.unsqueeze(1)
+            x = inception_model(x)
+            x = x.squeeze()
+            x = th.cat((home_teams, away_teams, x), 1)
+            pred = transformer_model(x.long(), t)
+            loss = criterion(pred.contiguous().view(-1, tgt_num_teams), t.long().contiguous().view(-1))
+            loss.backward()
+            optimizer.step()
+            print(f"Epoch: {epoch + 1}, Loss: {loss.item()}")
 
+
+if __name__ == "__main__":
+    train()
 
