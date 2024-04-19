@@ -186,7 +186,7 @@ def berrar_rating_valid_final(dataframe,team_ratings_dict,x=(beta_H, beta_A, gam
 
 start_time = time.time()
 for file in ["data_recent_and_val"]:
-    df = pd.read_csv(f"split_data/{file}.csv")
+    df = pd.read_csv(f"data/{file}.csv")
     
     #hyperparameter for PSO
     x_max = np.array([5, 5, 5, 5, 1.5, 1.5, 1.5, 1.5])
