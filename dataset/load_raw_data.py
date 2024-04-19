@@ -1,14 +1,31 @@
 # %%
-import numpy as np
 import pandas as pd
-
+import numpy as np
 from pyswarms.single.global_best import GlobalBestPSO
 import warnings
 import pickle
 import time
 
-# %%
 
+# %%
+# read from xsls file
+
+data_full = pd.read_excel('data/TrainingSet-FINAL.xlsx')
+val_full = pd.read_excel('data/PredictionSet-FINAL.xlsx')
+val_full = val_full.drop(columns=['ID'])
+
+# %%
+# get the recent 5 seasons only
+data_recent = data_full[data_full['Sea'].isin(data_full["Sea"].unique()[-5:])]
+
+# add the validation set to the training set of the recent 5 seasons
+data_recent_and_val = pd.concat([data_recent, val_full])
+
+# %%
+# write back to csv 
+data_recent_and_val.to_csv('data/data_recent_and_val.csv', index=False)
+
+# %%
 # code from: https://github.com/calvinyeungck/Soccer-Prediction-Challenge-2023/blob/main/berrar_rating.py
 
 def calculate_expected_goals(alpha, beta_H, gamma_H, beta_A, gamma_A, o_H, d_A, o_A, d_H):
@@ -210,8 +227,5 @@ for file in ["data_recent_and_val"]:
         with open(f'berrar_ratings/{file}_{league}_team_ratings_dict.pickle', 'wb') as handle:
             pickle.dump(team_ratings, handle, protocol=pickle.HIGHEST_PROTOCOL)
 print("--- %s seconds ---" % (time.time() - start_time))
-
-
-
 
 # %%
