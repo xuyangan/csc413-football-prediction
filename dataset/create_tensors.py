@@ -248,28 +248,30 @@ print(test_targets.shape)
 import pickle
 # save the tensors to disk
 
-th.save(training_home_teams_matches, "training_home_teams_matches.pt")
-th.save(training_away_teams_matches, "training_away_teams_matches.pt")
-th.save(training_matches_features_home, "training_matches_features_home.pt")
-th.save(training_matches_features_away, "training_matches_features_away.pt")
-th.save(training_targets, "training_targets.pt")
 
-th.save(test_home_teams_matches, "test_home_teams_matches.pt")
-th.save(test_away_teams_matches, "test_away_teams_matches.pt")
-th.save(test_matches_features_home, "test_matches_features_home.pt")
-th.save(test_matches_features_away, "test_matches_features_away.pt")
-th.save(test_targets, "test_targets.pt")
+folder = "tensors"
+th.save(training_home_teams_matches, f'{folder}/training_home_teams_matches.pt')
+th.save(training_away_teams_matches, f'{folder}/training_away_teams_matches.pt')
+th.save(training_matches_features_home, f'{folder}/training_matches_features_home.pt')
+th.save(training_matches_features_away, f'{folder}/training_matches_features_away.pt')
+th.save(training_targets, f'{folder}/training_targets.pt')
+
+th.save(test_home_teams_matches, f'{folder}/test_home_teams_matches.pt')
+th.save(test_away_teams_matches, f'{folder}/test_away_teams_matches.pt')
+th.save(test_matches_features_home, f'{folder}/test_matches_features_home.pt')
+th.save(test_matches_features_away, f'{folder}/test_matches_features_away.pt')
+th.save(test_targets, f'{folder}/test_targets.pt')
 
 
 # save the dictionaries
 
-with open('result_map.pkl', 'wb') as f:
+with open(f'{folder}/result_map.pkl', 'wb') as f:
     pickle.dump(result_map, f)
 
-with open('teams_to_idx.pkl', 'wb') as f:
+with open(f'{folder}/teams_to_idx.pkl', 'wb') as f:
     pickle.dump(teams_to_idx, f)
 
-with open('idx_to_teams.pkl', 'wb') as f:
+with open(f'{folder}/idx_to_teams.pkl', 'wb') as f:
     pickle.dump(idx_to_teams, f)
 
 
