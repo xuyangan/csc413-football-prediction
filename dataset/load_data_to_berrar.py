@@ -5,25 +5,29 @@ from pyswarms.single.global_best import GlobalBestPSO
 import warnings
 import pickle
 import time
-
-
-# %%
-# read from xsls file
-
-data_full = pd.read_excel('data/TrainingSet-FINAL.xlsx')
-val_full = pd.read_excel('data/PredictionSet-FINAL.xlsx')
-val_full = val_full.drop(columns=['ID'])
+import glob
 
 # %%
-# get the recent 5 seasons only
-data_recent = data_full[data_full['Sea'].isin(data_full["Sea"].unique()[-5:])]
+def get_data():
+    file_pattern = 'raw_data/*.csv'
+    files = glob.glob(file_pattern)
 
-# add the validation set to the training set of the recent 5 seasons
-data_recent_and_val = pd.concat([data_recent, val_full])
+    full_df = pd.DataFrame()
+    for file in files:
+        df = pd.read_csv(file, encoding='iso-8859-1')
+        full_df = pd.concat([full_df, df], ignore_index=True)
 
-# %%
-# write back to csv 
-data_recent_and_val.to_csv('data/data_recent_and_val.csv', index=False)
+    full_df['Date'] = pd.to_datetime(full_df['Date'], format='%d/%m/%Y')
+    # full_df.drop(['Referee'], axis=1, inplace=True)
+    full_df.rename(columns={'HomeTeam': 'HT', 'AwayTeam': 'AT'}, inplace=True)
+    full_df.reset_index().set_index('Date').sort_index(inplace=True)
+    # pad the nan with 0
+    full_df.fillna(0, inplace=True)
+
+    return full_df
+
+full_df = get_data()
+full_df.to_csv('full.csv', index=False)  
 
 # %%
 # code from: https://github.com/calvinyeungck/Soccer-Prediction-Challenge-2023/blob/main/berrar_rating.py
@@ -45,7 +49,7 @@ def individual_goal_pred_error(G_H, G_H_hat, G_A, G_A_hat):
     return f
 
 #ratings parameter
-alpha = 5 # max_goals = max(df['HS'].max(), df['AS'].max())
+alpha = 5 # max_goals = max(df['FTHG'].max(), df['FTAG'].max())
 
 beta_H = 1 # slope of the logistic function. bounds [0,5]
 beta_A = 1 
@@ -75,21 +79,21 @@ def total_goal_prediction_error(x=(beta_H, beta_A, gamma_H, gamma_A, omega_o_H, 
     total_match=0
     for index, row in df1.iterrows():
         HT = row['HT']
-        HS = row['HS']
+        FTHG = row['FTHG']
         AT = row['AT']
-        AS = row['AS']
+        FTAG = row['FTAG']
 
         G_H_hat, G_A_hat = calculate_expected_goals(alpha, beta_H, gamma_H, beta_A, gamma_A,
                                                     team_ratings[HT][0], team_ratings[AT][3],
                                                     team_ratings[AT][2], team_ratings[HT][1])
-        G_H=HS
-        G_A=AS
+        G_H=FTHG
+        G_A=FTAG
         team_ratings[HT][0] += omega_o_H * (G_H - G_H_hat)
         team_ratings[HT][1] += omega_d_H * (G_A - G_A_hat)
         team_ratings[AT][2] += omega_o_A * (G_A - G_A_hat)
         team_ratings[AT][3] += omega_d_A * (G_H - G_H_hat)
 
-        total_goal_pred_error += individual_goal_pred_error(HS, G_H_hat, AS, G_A_hat)
+        total_goal_pred_error += individual_goal_pred_error(FTHG, G_H_hat, FTAG, G_A_hat)
         total_match+=1
     loss=total_goal_pred_error/total_match
     #print("\n",len(loss),round(min(loss),2))
@@ -111,9 +115,9 @@ def berrar_rating(dataframe,x=(beta_H, beta_A, gamma_H, gamma_A, omega_o_H, omeg
         team_ratings[i]=[0,0,0,0] # Home attack, Home defense, Away Attack, Away defense
     for index, row in df1.iterrows():
         HT = row['HT']
-        HS = row['HS']
+        FTHG = row['FTHG']
         AT = row['AT']
-        AS = row['AS']
+        FTAG = row['FTAG']
 
         #import pdb; pdb.set_trace()
         df1.loc[index, 'HT_H_Off_Rating'] = team_ratings[HT][0]
@@ -134,7 +138,7 @@ def berrar_rating(dataframe,x=(beta_H, beta_A, gamma_H, gamma_A, omega_o_H, omeg
         df1.loc[index, 'AT_EG'] = G_A_hat
 
         team_ratings[HT][0],team_ratings[HT][1],team_ratings[AT][2],team_ratings[AT][3] = \
-            update_offensive_defensive_strengths(HS, G_H_hat, AS, G_A_hat,team_ratings[HT][0], team_ratings[HT][1], team_ratings[AT][2], team_ratings[AT][3],omega_o_H, omega_d_H, omega_o_A, omega_d_A)
+            update_offensive_defensive_strengths(FTHG, G_H_hat, FTAG, G_A_hat,team_ratings[HT][0], team_ratings[HT][1], team_ratings[AT][2], team_ratings[AT][3],omega_o_H, omega_d_H, omega_o_A, omega_d_A)
     return df1,team_ratings
 
 def berrar_rating_valid(dataframe,team_ratings_dict,x=(beta_H, beta_A, gamma_H, gamma_A, omega_o_H, omega_d_H, omega_o_A, omega_d_A)):
@@ -150,9 +154,9 @@ def berrar_rating_valid(dataframe,team_ratings_dict,x=(beta_H, beta_A, gamma_H, 
     team_ratings=team_ratings_dict
     for index, row in df1.iterrows():
         HT = row['HT']
-        HS = row['HS']
+        FTHG = row['FTHG']
         AT = row['AT']
-        AS = row['AS']
+        FTAG = row['FTAG']
 
         #import pdb; pdb.set_trace()
         df1.loc[index, 'HT_H_Off_Rating'] = team_ratings[HT][0]
@@ -173,7 +177,7 @@ def berrar_rating_valid(dataframe,team_ratings_dict,x=(beta_H, beta_A, gamma_H, 
         df1.loc[index, 'AT_EG'] = G_A_hat
 
         team_ratings[HT][0],team_ratings[HT][1],team_ratings[AT][2],team_ratings[AT][3] = \
-            update_offensive_defensive_strengths(HS, G_H_hat, AS, G_A_hat,team_ratings[HT][0], team_ratings[HT][1], team_ratings[AT][2], team_ratings[AT][3],omega_o_H, omega_d_H, omega_o_A, omega_d_A)
+            update_offensive_defensive_strengths(FTHG, G_H_hat, FTAG, G_A_hat,team_ratings[HT][0], team_ratings[HT][1], team_ratings[AT][2], team_ratings[AT][3],omega_o_H, omega_d_H, omega_o_A, omega_d_A)
     return df1,team_ratings
 
 def berrar_rating_valid_final(dataframe,team_ratings_dict,x=(beta_H, beta_A, gamma_H, gamma_A, omega_o_H, omega_d_H, omega_o_A, omega_d_A)):
@@ -199,11 +203,12 @@ def berrar_rating_valid_final(dataframe,team_ratings_dict,x=(beta_H, beta_A, gam
     return G_H_hat,G_A_hat
 
 
-# %%
 
+
+# %%
 start_time = time.time()
-for file in ["data_recent_and_val"]:
-    df = pd.read_csv(f"data/{file}.csv")
+for file in ["full"]:
+    df = pd.read_csv(f"{file}.csv")
     
     #hyperparameter for PSO
     x_max = np.array([5, 5, 5, 5, 1.5, 1.5, 1.5, 1.5])
@@ -212,9 +217,11 @@ for file in ["data_recent_and_val"]:
     options = {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
     
     warnings.simplefilter('ignore')
-    for league in df.Lge.unique():
-        print(league)
-        df1=df[df["Lge"]==league]
+    for league in df.Div.unique():
+        # change date to datetime
+        df1=df[df["Div"]==league]
+        df1['Date'] = pd.to_datetime(df1['Date'], format='%Y-%m-%d')
+        df1=df1.sort_values(by='Date')
         #team_to_index = {team_name: i for i, team_name in enumerate(np.unique(np.concatenate((df1['HT'].tolist(), df1['AT'].tolist()), axis=0)))}
         optimizer = GlobalBestPSO(n_particles=50, dimensions=8, options=options, bounds=bounds)
         cost, pos = optimizer.optimize(total_goal_prediction_error, 200)
@@ -222,10 +229,10 @@ for file in ["data_recent_and_val"]:
         #         0.57379537,  0.95790575,  1.00337636])
         df1,team_ratings=berrar_rating(df1,x=pos)
         df1.to_csv(f"berrar_ratings/{file}_{league}.csv", index=False)
-        with open(f'berrar_ratings/{file}_{league}_berrarratings_hyperparameters.pickle', 'wb') as handle:
-            pickle.dump(pos, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        with open(f'berrar_ratings/{file}_{league}_team_ratings_dict.pickle', 'wb') as handle:
-            pickle.dump(team_ratings, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        # with open(f'berrar_ratings2/{file}_{league}_berrarratings_hyperparameters.pickle', 'wb') as handle:
+        #     pickle.dump(pos, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        # with open(f'berrar_ratings2/{file}_{league}_team_ratings_dict.pickle', 'wb') as handle:
+        #     pickle.dump(team_ratings, handle, protocol=pickle.HIGHEST_PROTOCOL)
 print("--- %s seconds ---" % (time.time() - start_time))
 
-# %%
+
