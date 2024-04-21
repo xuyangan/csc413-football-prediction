@@ -126,14 +126,17 @@ away_team_features = [
 # %%
 def get_team_history_rating(df, label, team, n_stagger, before_date, features):
         before_df = df.reset_index().set_index(["Date"]).sort_index()
-        before_df = before_df.loc[:before_date]
+        # before_df = before_df.loc[:before_date]
+        # get the games before the date or equal to the date
+        before_df = before_df[before_df.index <= before_date]
         before_df = before_df[before_df[label] == team]
         # if there is less than n_stagger games before the date, 
         eval = n_stagger - len(before_df)
         if eval > 0:
-            nan_rows = pd.DataFrame(np.nan, index=range(eval), columns=before_df.columns)
-            before_df = pd.concat([nan_rows, before_df])
-            before_df = before_df.fillna(0)
+            return None 
+            # nan_rows = pd.DataFrame(np.nan, index=range(eval), columns=before_df.columns)
+            # before_df = pd.concat([nan_rows, before_df])
+            # before_df = before_df.fillna(0)
         
         else:
             before_df = before_df.iloc[-n_stagger:]
@@ -142,7 +145,7 @@ def get_team_history_rating(df, label, team, n_stagger, before_date, features):
 
         
 # test
-# get_team_history_rating(full_data, 'AT', 'Liverpool', 5, '2000-01-01', away_team_features)
+# get_team_history_rating(full_data, 'AT', 'Liverpool', 5, '2019-12-26', away_team_features)
 
 # %%
 
@@ -170,19 +173,21 @@ def compute_history(full_data, full_target, n_stagger):
     data_dp = full_data.copy()
     target_dp = full_target.copy().reset_index()
     data_dp.reset_index().set_index(["Date", "HT", "AT"]).sort_index()
+    target_dp.reset_index().set_index(["Date", "HT", "AT"]).sort_index()
 
 
     # shape num_matches x n_stagger x num_features
     matches_features_home = []
     matches_features_away = []
 
+    targets = []
+
     # map the result to a number
-    target_dp = target_dp["FTR"].map(result_map)
-    targets = th.tensor(target_dp.values, dtype=th.long)
+    # target_dp = target_dp["FTR"].map(result_map)
+    # targets = th.tensor(target_dp.values, dtype=th.long)
 
-    home_teams_matches = th.tensor(full_data["HT"].values, dtype=th.long)
-    away_teams_matches = th.tensor(full_data["AT"].values, dtype=th.long)
-
+    home_teams_matches = []
+    away_teams_matches = []
 
     for index, row in data_dp.iterrows():
         # this is match
@@ -192,21 +197,37 @@ def compute_history(full_data, full_target, n_stagger):
 
         # there are n_stagger rows with num_features columns
         home_history = get_team_history_rating(data_dp, 'HT', home_team, n_stagger, date, home_team_features)
+        if home_history is None:
+            continue
+        # shape n_stagger x num_features
+        away_history = get_team_history_rating(data_dp, 'AT', away_team, n_stagger, date, away_team_features)
+        if away_history is None:
+            continue
+        
         # shape n_stagger x num_features
         feature_home = th.tensor(home_history.values, dtype=th.float)
-        away_history = get_team_history_rating(data_dp, 'AT', away_team, n_stagger, date, away_team_features)
-        # shape n_stagger x num_features
         feature_away = th.tensor(away_history.values, dtype=th.float)
 
         # append in another dimension
         matches_features_home.append(feature_home.unsqueeze(0))
         matches_features_away.append(feature_away.unsqueeze(0))
+
+        target = target_dp.loc[target_dp["Date"] == date]
+        target = target.loc[target["HT"] == home_team]
+        target = target.loc[target["AT"] == away_team]
+        target = target["FTR"].values[0]
+        targets.append(result_map[target])
+
+        home_teams_matches.append(home_team)
+        away_teams_matches.append(away_team)
         
     matches_features_home = th.cat(matches_features_home, dim=0)
     matches_features_away = th.cat(matches_features_away, dim=0)
+    targets = th.tensor(targets, dtype=th.long)
+    home_teams_matches = th.tensor(home_teams_matches, dtype=th.long)
+    away_teams_matches = th.tensor(away_teams_matches, dtype=th.long)
 
     return home_teams_matches, away_teams_matches, matches_features_home, matches_features_away, targets
-
 
 
 # %%
