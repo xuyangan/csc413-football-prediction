@@ -5,22 +5,34 @@ import matplotlib.pyplot as plt
 
 # The evaluation metric used is Ranked Probability Score (RPS) (Constantinou & Fenton, 2013; Epstein, 1969), which is given by:
 
-def RPS_loss(output, target):
+class RPS_loss(torch.nn.Module):
+    def __init__(self):
+         super(RPS_loss, self).__init__()
 
-    # output/target shape: (batch, r)
-
-    cum_output = torch.cumsum(output, dim=-1) # cumulative sums of predictions
-    cum_target = torch.cumsum(target, dim=-1) # cumulative sums of targets
-    rps = torch.mean(torch.sum(torch.square(cum_output - cum_target), dim= -1), dim= -1)
-    return rps
-
+    def forward(self, x, t):
+        cum_output = torch.cumsum(x, dim=-1) # cumulative sums of predictions
+        cum_target = torch.cumsum(t, dim=-1) # cumulative sums of targets
+        rps = torch.mean(torch.sum(torch.square(cum_output - cum_target), dim= -1), dim= -1)
+        return rps
 
 # taken and adpated from lab7
 
 def accuracy(model, dataloader, max=1000):
+
+    device = 'cpu'
+    if torch.backends.mps.is_available():
+        device = 'mps'
+    if torch.cuda.is_available():
+        device = 'cuda'
+
+
     with torch.no_grad():
         correct, total = 0, 0
         for i, (_h, _a, home_features, away_features, targets) in enumerate(dataloader):
+            home_features = home_features.to(device)
+            away_features = away_features.to(device)
+            targets = targets.to(device)
+            
             z = model(home_features, away_features)
             y = torch.argmax(z, axis=1)
             t = torch.argmax(targets, axis=1)
@@ -42,7 +54,17 @@ def train_model(
                 plot_every=50,        # how often (in # iterations) to track metrics
                 plot=True):           # whether to plot the training curve
 
-    model.train()
+
+    device = 'cpu'
+    if torch.backends.mps.is_available():
+        device = 'mps'
+    if torch.cuda.is_available():
+        device = 'cuda'
+
+    model = model.to(device=device)
+    criterion = criterion.to(device=device)
+
+    model.train() 
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
     # these lists will be used to track the training progress
@@ -53,6 +75,10 @@ def train_model(
     try:
         for e in range(num_epochs):
             for i, (home_teams, away_teams, home_features, away_features, targets) in enumerate(train_loader):
+                home_features = home_features.to(device)
+                away_features = away_features.to(device)
+                targets = targets.to(device)
+
 
                 z = model(home_features,away_features)
                 loss = criterion(z, targets)

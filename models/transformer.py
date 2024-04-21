@@ -160,7 +160,7 @@ class Transformer(nn.Module):
             If ver = 3, transformer uses no dummy features and just takes in team A + team B features as input.
           The additional feature is added after inception.
     """
-    def __init__(self, num_features, inception_depth, inception_out, num_heads, num_layers, d_ff, d_h, max_timespan, dropout, ver):
+    def __init__(self, num_features, inception_depth, inception_out, num_heads, num_layers, d_ff, d_h, max_timespan, dropout):
         super(Transformer, self).__init__()
         d_model = get_last_inception_output_size(inception_out, inception_depth)
         self.positional_encoding = PositionalEncoding(d_model, max_timespan)
