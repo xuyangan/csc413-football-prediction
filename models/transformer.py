@@ -179,7 +179,12 @@ class Transformer(nn.Module):
             enc_output = enc_layer(enc_output)
         enc_output = torch.sum(enc_output, 1)
         enc_output = self.fc2(self.fc1(enc_output))  # encoder output fed to fully connected layer
-        return torch.softmax(enc_output, -1)  # softmax to normalize output of fc layer
+        z = torch.softmax(enc_output, -1)  # softmax to normalize output of fc layer
+        batch_size = z.size(0)  # note batch_size is always even
+        p1 = z[:(batch_size // 2), :]
+        p2 = z[(batch_size // 2):, :]
+        p2 = torch.index_select(p2, 1, torch.LongTensor([1, 0, 2]))
+        return (p1 + p2) / 2
 
 ######
 
@@ -211,12 +216,11 @@ def train_transformer():
             optimizer.zero_grad()
             concat_features = torch.cat((home_features, away_features), 0)
             output = transformer_model(concat_features)
-            concat_targets = torch.cat((targets, targets), 0)
-            loss = criterion(output, concat_targets)
+            loss = criterion(output, targets)
             loss.backward()
             optimizer.step()
             pred = torch.argmax(output, 1)
-            acc = (pred == concat_targets).float().mean()
+            acc = (pred == targets).float().mean()
             print(f"Epoch: {epoch + 1}, Loss: {loss.item()}, Accuracy: {acc}")
             iter = iter + 1
             if iter > 200:
@@ -227,8 +231,7 @@ def train_transformer():
         for home_teams, away_teams, home_features, away_features, targets in val_loader:
             concat_features = torch.cat((home_features, away_features), 0)
             output = transformer_model(concat_features)
-            concat_targets = torch.cat((targets, targets), 0)
             pred = torch.argmax(output, 1)
-            acc = (pred == concat_targets).float().mean()
+            acc = (pred == targets).float().mean()
             print(f"Accuracy: {acc}")
 
