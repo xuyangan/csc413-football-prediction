@@ -25,8 +25,7 @@ class LSTM(nn.Module):
         self.attn_H = nn.MultiheadAttention(hidden_size, num_heads=num_heads, batch_first=True)
         self.attn_A = nn.MultiheadAttention(hidden_size, num_heads=num_heads, batch_first=True)
 
-        self.fc1 = nn.Linear(2 * hidden_size, hidden_size)
-        self.fc2 = nn.Linear(hidden_size, num_classes)
+        self.fc = nn.Linear(2 * hidden_size, num_classes)
 
 
     def forward(self, home, away):
@@ -52,7 +51,6 @@ class LSTM(nn.Module):
 
         code = torch.cat([self_attn_H[:,-1,:], self_attn_A[:,-1,:]], dim=-1) #  (batch_size, 2 * (hidden_size + 1))
 
-        h = nn.functional.leaky_relu(self.fc1(code))
-        z = nn.functional.softmax(self.fc2(h), dim=-1)
+        z = nn.functional.softmax(self.fc(code), dim=-1)
 
         return z

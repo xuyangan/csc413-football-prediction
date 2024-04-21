@@ -160,18 +160,19 @@ class Transformer(nn.Module):
             If ver = 3, transformer uses no dummy features and just takes in team A + team B features as input.
           The additional feature is added after inception.
     """
-    def __init__(self, in_channels, inception_depth, out_channels, num_heads, num_layers, d_ff, d_h, max_timespan, dropout, ver):
+    def __init__(self, num_features, inception_depth, inception_out, num_heads, num_layers, d_ff, d_h, max_timespan, dropout, ver):
         super(Transformer, self).__init__()
-        d_model = get_last_inception_output_size(out_channels, inception_depth)
+        d_model = get_last_inception_output_size(inception_out, inception_depth)
         self.positional_encoding = PositionalEncoding(d_model, max_timespan)
-        self.inception = InceptionTime(in_channels, out_channels)
+        self.inception = InceptionTime(num_features, inception_out)
         self.encoder_layers = nn.ModuleList([EncoderLayer(d_model, num_heads, d_ff, dropout) for _ in range(num_layers)])
         self.fc1 = nn.Linear(d_model, d_h)
         self.fc2 = nn.Linear(d_h, 3)
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, src):
-        src = self.inception(src)
+    def forward(self, home, away):
+        cat = torch.cat((home, away), 0)
+        src = self.inception(cat)
         src_encoded = self.dropout(self.positional_encoding(src))
 
         enc_output = src_encoded
@@ -193,45 +194,45 @@ class Transformer(nn.Module):
 
 #####
 
-in_channels = 14  # this should be the number of features in each data sample
-# the remaining inputs are hyperparameters which can be tuned accordingly
-inception_depth = 3
-out_channels = 256
-num_heads = 8  # note: num heads must divide d_model
-num_layers = 6
-d_ff = 256
-d_h = 512
-max_timespan = 50
-dropout = 0.1
+# num_features = 14  # this should be the number of features in each data sample
+# # the remaining inputs are hyperparameters which can be tuned accordingly
+# inception_depth = 3
+# inception_out = 256
+# num_heads = 8  # note: num heads must divide d_model
+# num_layers = 6
+# d_ff = 256
+# d_h = 512
+# max_timespan = 50
+# dropout = 0.1
 
 
-def train_transformer():
-    transformer_model = Transformer(in_channels, inception_depth, out_channels, num_heads, num_layers, d_ff, d_h, max_timespan, dropout, 3)
-    transformer_model.train()
-    criterion = nn.CrossEntropyLoss(ignore_index=0)
-    optimizer = torch.optim.Adam(transformer_model.parameters(), lr=0.0001, betas=(0.9, 0.98), eps=1e-9)
-    iter = 0
-    for epoch in range(20):
-        for home_teams, away_teams, home_features, away_features, targets in train_loader:
-            optimizer.zero_grad()
-            concat_features = torch.cat((home_features, away_features), 0)
-            output = transformer_model(concat_features)
-            loss = criterion(output, targets)
-            loss.backward()
-            optimizer.step()
-            pred = torch.argmax(output, 1)
-            acc = (pred == targets).float().mean()
-            print(f"Epoch: {epoch + 1}, Loss: {loss.item()}, Accuracy: {acc}")
-            iter = iter + 1
-            if iter > 200:
-                break
-        break
+# def train_transformer():
+#     transformer_model = Transformer(num_features, inception_depth, inception_out, num_heads, num_layers, d_ff, d_h, max_timespan, dropout, 3)
+#     transformer_model.train()
+#     criterion = nn.CrossEntropyLoss(ignore_index=0)
+#     optimizer = torch.optim.Adam(transformer_model.parameters(), lr=0.0001, betas=(0.9, 0.98), eps=1e-9)
+#     iter = 0
+#     for epoch in range(20):
+#         for home_teams, away_teams, home_features, away_features, targets in train_loader:
+#             optimizer.zero_grad()
+#             # concat_features = torch.cat((home_features, away_features), 0) -- moved to forward() in model
+#             output = transformer_model(concat_features)
+#             loss = criterion(output, targets)
+#             loss.backward()
+#             optimizer.step()
+#             pred = torch.argmax(output, 1)
+#             acc = (pred == targets).float().mean()
+#             print(f"Epoch: {epoch + 1}, Loss: {loss.item()}, Accuracy: {acc}")
+#             iter = iter + 1
+#             if iter > 200:
+#                 break
+#         break
 
-    for epoch in range(20):
-        for home_teams, away_teams, home_features, away_features, targets in val_loader:
-            concat_features = torch.cat((home_features, away_features), 0)
-            output = transformer_model(concat_features)
-            pred = torch.argmax(output, 1)
-            acc = (pred == targets).float().mean()
-            print(f"Accuracy: {acc}")
+#     for epoch in range(20):
+#         for home_teams, away_teams, home_features, away_features, targets in val_loader:
+#             concat_features = torch.cat((home_features, away_features), 0)
+#             output = transformer_model(concat_features)
+#             pred = torch.argmax(output, 1)
+#             acc = (pred == targets).float().mean()
+#             print(f"Accuracy: {acc}")
 
