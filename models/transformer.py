@@ -2,7 +2,10 @@ import torch
 import torch.nn as nn
 import math
 import sys
-from models.layers.InceptionTimeBlock import *
+
+from models.InceptionTime import InceptionTime
+from models.utils import get_last_inception_output_size
+
 
 # Code is based off stuff taken from the following link:
 # https://www.datacamp.com/tutorial/building-a-transformer-with-py-torch
@@ -157,11 +160,11 @@ class Transformer(nn.Module):
             If ver = 3, transformer uses no dummy features and just takes in team A + team B features as input.
           The additional feature is added after inception.
     """
-    def __init__(self, in_channels, out_channels, num_heads, num_layers, d_ff, d_h, max_timespan, dropout, ver):
+    def __init__(self, in_channels, inception_depth, out_channels, num_heads, num_layers, d_ff, d_h, max_timespan, dropout, ver):
         super(Transformer, self).__init__()
-        d_model = 4 * out_channels  # note: inception block has output size 4 * out_channels so d_model must be this size
+        d_model = get_last_inception_output_size(out_channels, inception_depth)
         self.positional_encoding = PositionalEncoding(d_model, max_timespan)
-        self.inception = InceptionTimeBlock(in_channels, out_channels)
+        self.inception = InceptionTime(in_channels, out_channels)
         self.encoder_layers = nn.ModuleList([EncoderLayer(d_model, num_heads, d_ff, dropout) for _ in range(num_layers)])
         self.fc1 = nn.Linear(d_model, d_h)
         self.fc2 = nn.Linear(d_h, 3)
@@ -187,6 +190,7 @@ class Transformer(nn.Module):
 
 in_channels = 14  # this should be the number of features in each data sample
 # the remaining inputs are hyperparameters which can be tuned accordingly
+inception_depth = 3
 out_channels = 256
 num_heads = 8  # note: num heads must divide d_model
 num_layers = 6
@@ -197,7 +201,7 @@ dropout = 0.1
 
 
 def train_transformer():
-    transformer_model = Transformer(in_channels, out_channels, num_heads, num_layers, d_ff, d_h, max_timespan, dropout, 3)
+    transformer_model = Transformer(in_channels, inception_depth, out_channels, num_heads, num_layers, d_ff, d_h, max_timespan, dropout, 3)
     transformer_model.train()
     criterion = nn.CrossEntropyLoss(ignore_index=0)
     optimizer = torch.optim.Adam(transformer_model.parameters(), lr=0.0001, betas=(0.9, 0.98), eps=1e-9)
