@@ -5,7 +5,17 @@ from layers.InceptionTimeBlock import InceptionTimeBlock
 from layers.ResidualLayer import ResidualLayer
 
 class InceptionTime(nn.Module):
-    def __init__(self, in_channels, out_channels, depth=6, init_weight=True, bottleneck_dim=None, use_bias=False, use_residual=True):
+    def __init__(
+            self, 
+            in_channels, 
+            out_channels=32, 
+            depth=6, 
+            init_weight=True, 
+            bottleneck_dim=None, 
+            use_bias=False, 
+            use_residual=True
+        ):
+
         super(InceptionTime, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -23,7 +33,7 @@ class InceptionTime(nn.Module):
                                              out_channels, 
                                              init_weight=init_weight,
                                              bottleneck_dim=bottleneck_dim,
-                                             use_bias=False))
+                                             use_bias=use_bias))
             
             if use_residual and i % 2 == 1:
                 blocks.append(ResidualLayer(residual_in_channels, out_channels * 4))

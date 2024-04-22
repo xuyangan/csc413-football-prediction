@@ -4,16 +4,11 @@ import math
 import sys
 
 from models.InceptionTime import InceptionTime
-from models.utils import get_last_inception_output_size
+from utils import get_last_inception_output_size
 
 
 # Code is based off stuff taken from the following link:
 # https://www.datacamp.com/tutorial/building-a-transformer-with-py-torch
-device = 'cpu'
-if torch.backends.mps.is_available():
-    device = 'mps'
-if torch.cuda.is_available():
-    device = 'cuda'
 
 class MultiHeadAttention(nn.Module):
     """
@@ -23,6 +18,7 @@ class MultiHeadAttention(nn.Module):
         - d_model: size of linear layers used
         - num_heads: Number of heads used in multi-head attention
     """
+
     def __init__(self, d_model, num_heads):
         super(MultiHeadAttention, self).__init__()
         # Ensure that the model dimension (d_model) is divisible by the number of heads
@@ -83,6 +79,7 @@ class FFTransformerLayer(nn.Module):
         - d_ff: Number of nodes in the first layer
         - d_model: Number of nodes in the second layer
     """
+
     def __init__(self, d_model, d_ff):
         super(FFTransformerLayer, self).__init__()
         self.fc1 = nn.Linear(d_model, d_ff)
@@ -104,6 +101,7 @@ class FFOutputLayer(nn.Module):
         - d_enc: Dimension of encoder output
         - d_h: Dimension of hidden layer
     """
+
     def __init__(self, d_enc, d_h):
         super(FFOutputLayer, self).__init__()
         self.fc1 = nn.Linear(d_enc, d_h)
@@ -134,7 +132,7 @@ class PositionalEncoding(nn.Module):
     def __init__(self, d_model, max_timespan):
         super(PositionalEncoding, self).__init__()
 
-        pe = torch.zeros(2, max_timespan, d_model) # 5 x inception out
+        pe = torch.zeros(2, max_timespan, d_model)  # 5 x inception out
         position = torch.arange(0, max_timespan, dtype=torch.float).unsqueeze(1)
         div_term = torch.exp(torch.arange(0, d_model).float() * -(math.log(10000.0) / d_model))
         pe[0] = torch.sin(position * div_term)
@@ -143,10 +141,11 @@ class PositionalEncoding(nn.Module):
 
     def forward(self, x):
         x = x.clone()
-        batch_size = x.size(0)//2
+        batch_size = x.size(0) // 2
         x[:batch_size] = x[:batch_size].clone() + self.pe[0]
         x[-batch_size:] = x[-batch_size:].clone() + self.pe[1]
         return x
+
 
 # note: we have only kept the encoder portion of the transformer for the purpose of prediction making
 # the decoder has been discarded, and the encoder's output is given to a feedforward neural network
@@ -167,36 +166,33 @@ class Transformer(nn.Module):
             If ver = 3, transformer uses no dummy features and just takes in team A + team B features as input.
           The additional feature is added after inception.
     """
-    def __init__(self, num_features, inception_depth, inception_out, num_heads, num_layers, d_ff, d_h, max_timespan, dropout):
+
+    def __init__(self, num_features, inception_depth, inception_out, num_heads, num_layers, d_ff, d_h, max_timespan,
+                 dropout):
         super(Transformer, self).__init__()
 
         self.d_model = get_last_inception_output_size(inception_out, inception_depth)
         self.positional_encoding = PositionalEncoding(self.d_model, max_timespan)
 
         self.inception = InceptionTime(num_features, inception_out, inception_depth)
-        self.encoder_layers = nn.ModuleList([EncoderLayer(self.d_model, num_heads, d_ff, dropout) for _ in range(num_layers)])
+        self.encoder_layers = nn.ModuleList(
+            [EncoderLayer(self.d_model, num_heads, d_ff, dropout) for _ in range(num_layers)])
         self.fc1 = nn.Linear(self.d_model, d_h)
         self.fc2 = nn.Linear(d_h, 3)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, home, away):
-
         batch_size = home.shape[0]
         timesteps = home.shape[1]
         
         cat = torch.cat((home, away), 0)
-   
+
         src = self.inception(cat)
         src_encoded = self.dropout(self.positional_encoding(src))
 
-        # enc_output = src_encoded # (2 x batchsize, t, d_model)
-        # [:batchsize] is home team // [-batchsize:] is away
-        # we want (batchsize, 2 x t, d_model)
-
-
-
-
-        enc_output = torch.concat((torch.ones(batch_size, 1, self.d_model).to(device), src_encoded[:batch_size], src_encoded[-batch_size:]), dim= 1)
+        enc_output = torch.concat((torch.ones(batch_size, 1, self.d_model).to(device=cat.device),
+                                   src_encoded[:batch_size], src_encoded[-batch_size:]),
+                                  dim=1)
 
         for enc_layer in self.encoder_layers:
             enc_output = enc_layer(enc_output)

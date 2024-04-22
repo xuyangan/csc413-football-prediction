@@ -2,11 +2,21 @@ import torch as th
 import torch.nn as nn
 
 from models.InceptionTime import InceptionTime
-from models.utils import get_last_inception_output_size
+from utils import get_last_inception_output_size
 
 
 class LSTM(nn.Module):
-    def __init__(self, num_features, inception_depth, inception_out, lstm_num_layers, hidden_size, num_heads, num_classes, bottleneck_dim = None):
+    def __init__(
+            self, 
+            num_features, 
+            inception_depth, 
+            inception_out, 
+            lstm_num_layers, 
+            hidden_size, 
+            num_heads, 
+            num_classes, 
+            bottleneck_dim = None
+        ):
         super(LSTM, self).__init__()
 
         self.num_features   = num_features
