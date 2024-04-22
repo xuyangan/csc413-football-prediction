@@ -19,18 +19,42 @@ class RPS_loss(torch.nn.Module):
         # ranked probability score
         rps = torch.mean(diff_sum)
         return rps
+    
+def test_model(model, test_dataset, criterion, batch_size, device):
+    model.eval()
+    model = model.to(device=device)
+    dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+
+    total_loss = 0.0
+    with torch.no_grad():
+        correct, total = 0, 0
+        for i, (_h, _a, home_features, away_features, targets) in enumerate(dataloader):
+            home_features = home_features.to(device)
+            away_features = away_features.to(device)
+            targets = targets.to(device)
+            
+            z = model(home_features, away_features)
+            total_loss += criterion(z, targets)
+
+            y = torch.argmax(z, axis=1)
+            t = torch.argmax(targets, axis=1)
+
+            correct += int(torch.sum(t == y))
+            total   += 1
+
+        return correct / total, total_loss/len(dataloader)
 # taken and adpated from lab7
 
-def accuracy(model, dataset, batch_size, max=1000):
+def accuracy(model, dataset, batch_size, max=1000, device=None):
 
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
-
-    device = 'cpu'
-    if torch.backends.mps.is_available():
-        device = 'mps'
-    if torch.cuda.is_available():
-        device = 'cuda'
+    if device is None:
+        device = 'cpu'
+        if torch.backends.mps.is_available():
+            device = 'mps'
+        if torch.cuda.is_available():
+            device = 'cuda'
 
     model.eval()
     with torch.no_grad():
@@ -60,15 +84,18 @@ def train_model(
                 learning_rate=0.001,
                 num_epochs=20,
                 plot_every=50,        # how often (in # iterations) to track metrics
-                plot=True):           # whether to plot the training curve
+                plot=True,
+                accumulation_steps=10,
+                device=None):           # whether to plot the training curve
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
 
-    device = 'cpu'
-    if torch.backends.mps.is_available():
-        device = 'mps'
-    if torch.cuda.is_available():
-        device = 'cuda'
+    if device is None:
+        device = 'cpu'
+        if torch.backends.mps.is_available():
+            device = 'mps'
+        if torch.cuda.is_available():
+            device = 'cuda'
 
     model = model.to(device=device)
     criterion = criterion.to(device=device)
@@ -80,7 +107,6 @@ def train_model(
     # and to plot the training curve
     iters, train_loss, train_acc, val_acc = [], [], [], []
     iter_count = 0 # count the number of iterations that has passed
-    accumumlation_steps = 10
 
     try:
         for e in range(num_epochs):
@@ -93,10 +119,10 @@ def train_model(
                 
                 z = model(home_features,away_features)
 
-                loss = criterion(z, targets) / accumumlation_steps
+                loss = criterion(z, targets) / accumulation_steps
                 loss.backward() # propagate the gradients
 
-                if iter_count % accumumlation_steps == 0:
+                if iter_count % accumulation_steps == 0:
                     optimizer.step() # update the parameters
                     # print("lr, ", scheduler.get_last_lr())
                     
@@ -106,8 +132,8 @@ def train_model(
                 iter_count += 1
                 if iter_count % plot_every == 0:
                     iters.append(iter_count)
-                    ta = accuracy(model, train_dataset, batch_size)
-                    va = accuracy(model, val_dataset, batch_size)
+                    ta = accuracy(model, train_dataset, batch_size, device=device)
+                    va = accuracy(model, val_dataset, batch_size, device=device)
                     train_loss.append(float(loss))
                     train_acc.append(ta)
                     val_acc.append(va)
