@@ -11,11 +11,14 @@ class RPS_loss(torch.nn.Module):
          super(RPS_loss, self).__init__()
 
     def forward(self, x, t):
-        cum_output = torch.cumsum(x, dim=-1) # cumulative sums of predictions
-        cum_target = torch.cumsum(t, dim=-1) # cumulative sums of targets
-        rps = torch.mean(torch.sum(torch.square(cum_output - cum_target), dim= -1), dim= -1)
+        diff1 = (x[:, 0] - t[:, 0]).unsqueeze(1)
+        diff2 = ((x[:, 0] + x[:, 1]) - (t[:, 0] + t[:, 1])).unsqueeze(1)
+        diff1_squared = torch.square(diff1)
+        diff2_squared = torch.square(diff2)
+        diff_sum = 0.5 * (diff1_squared + diff2_squared)
+        # ranked probability score
+        rps = torch.mean(diff_sum)
         return rps
-
 # taken and adpated from lab7
 
 def accuracy(model, dataset, batch_size, max=1000):
@@ -128,4 +131,6 @@ def train_model(
             plt.xlabel("Iterations")
             plt.ylabel("Loss")
             plt.legend(["Train", "Validation"])
+
+    # return iters, train_loss, train_acc, val_acc
 
