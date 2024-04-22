@@ -1,14 +1,14 @@
-
 import torch
 import torch.optim as optim
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 
+
 # The evaluation metric used is Ranked Probability Score (RPS) (Constantinou & Fenton, 2013; Epstein, 1969), which is given by:
 
 class RPS_loss(torch.nn.Module):
     def __init__(self):
-         super(RPS_loss, self).__init__()
+        super(RPS_loss, self).__init__()
 
     def forward(self, x, t):
         diff1 = (x[:, 0] - t[:, 0]).unsqueeze(1)
@@ -19,8 +19,10 @@ class RPS_loss(torch.nn.Module):
         # ranked probability score
         rps = torch.mean(diff_sum)
         return rps
-    
+
+
 def test_model(model, test_dataset, criterion, batch_size, device):
+    print(f"Testing on: {device}")
     model.eval()
     model = model.to(device=device)
     dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
@@ -32,7 +34,7 @@ def test_model(model, test_dataset, criterion, batch_size, device):
             home_features = home_features.to(device)
             away_features = away_features.to(device)
             targets = targets.to(device)
-            
+
             z = model(home_features, away_features)
             total_loss += criterion(z, targets)
 
@@ -40,13 +42,14 @@ def test_model(model, test_dataset, criterion, batch_size, device):
             t = torch.argmax(targets, axis=1)
 
             correct += int(torch.sum(t == y))
-            total   += 1
+            total += 1
 
-        return correct / total, total_loss/len(dataloader)
+        return correct / total, total_loss / len(dataloader)
+
+
 # taken and adpated from lab7
 
 def accuracy(model, dataset, batch_size, max=1000, device=None):
-
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
     if device is None:
@@ -63,30 +66,31 @@ def accuracy(model, dataset, batch_size, max=1000, device=None):
             home_features = home_features.to(device)
             away_features = away_features.to(device)
             targets = targets.to(device)
-            
+
             z = model(home_features, away_features)
             y = torch.argmax(z, axis=1)
             t = torch.argmax(targets, axis=1)
 
             correct += int(torch.sum(t == y))
-            total   += 1
+            total += 1
             if i >= max:
                 break
         return correct / total
 
+
 # modified code below is taken from csc413 lab 7
 def train_model(
-                model,
-                criterion,
-                train_dataset,           # training loader
-                val_dataset,
-                batch_size = 100,
-                learning_rate=0.001,
-                num_epochs=20,
-                plot_every=50,        # how often (in # iterations) to track metrics
-                plot=True,
-                accumulation_steps=10,
-                device=None):           # whether to plot the training curve
+        model,
+        criterion,
+        train_dataset,  # training loader
+        val_dataset,
+        batch_size=100,
+        learning_rate=0.001,
+        num_epochs=20,
+        plot_every=50,  # how often (in # iterations) to track metrics
+        plot=True,
+        accumulation_steps=10,
+        device=None):  # whether to plot the training curve
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
 
@@ -106,7 +110,7 @@ def train_model(
     # these lists will be used to track the training progress
     # and to plot the training curve
     iters, train_loss, train_acc, val_acc = [], [], [], []
-    iter_count = 0 # count the number of iterations that has passed
+    iter_count = 0  # count the number of iterations that has passed
 
     try:
         for e in range(num_epochs):
@@ -115,20 +119,19 @@ def train_model(
                 away_features = away_features.to(device)
                 targets = targets.to(device)
 
-                model.train() 
-                
-                z = model(home_features,away_features)
+                model.train()
+
+                z = model(home_features, away_features)
 
                 loss = criterion(z, targets) / accumulation_steps
-                loss.backward() # propagate the gradients
+                loss.backward()  # propagate the gradients
 
                 if iter_count % accumulation_steps == 0:
-                    optimizer.step() # update the parameters
+                    optimizer.step()  # update the parameters
                     # print("lr, ", scheduler.get_last_lr())
-                    
-                    optimizer.zero_grad() # clean up accumualted gradients
 
-                
+                    optimizer.zero_grad()  # clean up accumualted gradients
+
                 iter_count += 1
                 if iter_count % plot_every == 0:
                     iters.append(iter_count)
@@ -159,4 +162,3 @@ def train_model(
             plt.legend(["Train", "Validation"])
 
     # return iters, train_loss, train_acc, val_acc
-
