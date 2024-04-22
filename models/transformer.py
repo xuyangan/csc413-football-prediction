@@ -168,13 +168,17 @@ class Transformer(nn.Module):
     """
 
     def __init__(self, num_features, inception_depth, inception_out, num_heads, num_layers, d_ff, d_h, max_timespan,
-                 dropout):
+                 dropout, inception_use_residual=True, inception_bottleneck=None):
         super(Transformer, self).__init__()
 
         self.d_model = get_last_inception_output_size(inception_out, inception_depth)
         self.positional_encoding = PositionalEncoding(self.d_model, max_timespan)
 
-        self.inception = InceptionTime(num_features, inception_out, inception_depth)
+        self.inception = InceptionTime(num_features, 
+                                       inception_out, 
+                                       inception_depth, 
+                                       bottleneck_dim=inception_bottleneck, 
+                                       use_residual=inception_use_residual)
         self.encoder_layers = nn.ModuleList(
             [EncoderLayer(self.d_model, num_heads, d_ff, dropout) for _ in range(num_layers)])
         self.fc1 = nn.Linear(self.d_model, d_h)
