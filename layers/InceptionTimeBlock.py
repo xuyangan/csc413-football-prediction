@@ -22,7 +22,8 @@ class InceptionTimeBlock(nn.Module):
         self.branch5x5 = nn.Conv1d(in_channels, out_channels, kernel_size=5, padding=2, bias=use_bias)
 
         # Max pooling
-        self.max_pool = nn.MaxPool1d(kernel_size=3, stride=1, padding=1)
+        # self.max_pool = nn.MaxPool1d(kernel_size=3, stride=1, padding=1)
+        self.max_pool = nn.AvgPool1d(kernel_size=3, stride=1, padding=1)
 
         # 1x1 Convolution after max pooling
         self.branch1x1_after_max_pool = nn.Conv1d(self.in_channels, out_channels, kernel_size=1, bias=use_bias)
