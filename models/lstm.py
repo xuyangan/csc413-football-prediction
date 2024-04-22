@@ -23,12 +23,8 @@ class LSTM(nn.Module):
 
         self.lstm = nn.LSTM(input_size= get_last_inception_output_size(inception_out, inception_depth), num_layers=lstm_num_layers, hidden_size=hidden_size, batch_first=True)
 
-        # self.attn_H = nn.MultiheadAttention(hidden_size, num_heads=num_heads, batch_first=True)
-        # self.attn_A = nn.MultiheadAttention(hidden_size, num_heads=num_heads, batch_first=True)
-
         self.attn = nn.MultiheadAttention(hidden_size, num_heads=num_heads, batch_first=True)
         
-
         self.fc = nn.Linear(2 * hidden_size, num_classes)
 
 
@@ -41,15 +37,8 @@ class LSTM(nn.Module):
 
         inception_features = self.inception(stacked_x)
 
-        # indices_H = th.arange(0, batch_size)
-        # indices_A = th.arange(batch_size, 2 * batch_size)
-
-        # seq_H = th.index_select(inception_features, 0, indices_H) # (batch_size, seq_length, num_features)
-        # seq_A = th.index_select(inception_features, 0, indices_A)
-
         seq_H = inception_features[:batch_size, :, :]
         seq_A = inception_features[-batch_size:, :, :]
-
 
         h_H, (_, _) = self.lstm(seq_H) # (batch_size, seq_length, hidden_size)
         h_A, (_, _) = self.lstm(seq_A) # same ^
@@ -57,10 +46,7 @@ class LSTM(nn.Module):
         self_attn_H, _ = self.attn(h_H, h_H, h_H)
         self_attn_A, _ = self.attn(h_A, h_A, h_A)
 
-        # self_attn_H = h_H
-        # self_attn_A = h_A
-
-        code = th.cat([self_attn_H[:,-1,:], self_attn_A[:,-1,:]], dim=-1) #  (batch_size, 2 * (hidden_size + 1))
+        code = th.cat([self_attn_H[:,-1,:], self_attn_A[:,-1,:]], dim=-1) # batch_size, 2 * (hidden_size + 1))
 
         z = nn.functional.softmax(self.fc(code), dim=-1)
 
